@@ -1,9 +1,6 @@
-from flask import Flask, render_template, request, jsonify
+import streamlit as st
 
-app = Flask(__name__)
-
-
-# ฟังก์ชันคำนวณคะแนนความเสี่ยง
+# ฟังก์ชันคำนวณคะแนนความเสี่ยงโรคหลอดเลือดหัวใจ
 def calculate_risk_score(age, gender, smoking, hypertension, waist_circumference, weight, height, exercise, family_history, blood_sugar, cholesterol, diet):
     score = 0
 
@@ -40,13 +37,13 @@ def calculate_risk_score(age, gender, smoking, hypertension, waist_circumference
         score += 3
 
     # คอเลสเตอรอล
-    if cholesterol > 240:
+    if cholesterol > 240:  # คอเลสเตอรอลสูงมาก
         score += 4
-    elif cholesterol > 200:
+    elif cholesterol > 200:  # คอเลสเตอรอลในระดับเสี่ยง
         score += 2
 
     # น้ำตาลในเลือด
-    if blood_sugar > 126:
+    if blood_sugar > 126:  # น้ำตาลในเลือดสูง
         score += 4
 
     # รอบเอว
@@ -56,9 +53,9 @@ def calculate_risk_score(age, gender, smoking, hypertension, waist_circumference
     # น้ำหนักและดัชนีมวลกาย (BMI)
     bmi = weight / (height / 100) ** 2
     if bmi < 18.5:
-        score += 3
+        score += 3  # น้ำหนักต่ำกว่ามาตรฐาน
     elif bmi > 30:
-        score += 4
+        score += 4  # น้ำหนักเกินมาตรฐาน
 
     # กิจกรรมทางกาย
     if exercise == "ไม่ออกกำลังกาย":
@@ -99,33 +96,28 @@ def interpret_risk(score):
 
     return risk_percentage, advice
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# เริ่มสร้างหน้าเว็บด้วย Streamlit
+st.title("แบบสอบถามประเมินความเสี่ยงโรคหลอดเลือดหัวใจ ")
 
-@app.route('/calculate-risk', methods=['POST'])
-def calculate_risk():
-    try:
-        data = request.json
+# การรับข้อมูลจากผู้ใช้
+age = st.number_input("อายุ (ปี)", min_value=1, max_value=120, step=1)
+gender = st.selectbox("เพศ", ["ชาย", "หญิง"])
+smoking = st.checkbox("คุณสูบบุหรี่หรือไม่?", value=False)
+hypertension = st.checkbox("คุณมีความดันโลหิตสูงหรือไม่?", value=False)
+waist_circumference = st.number_input("รอบเอว (ซม.)", min_value=50.0, step=0.1)
+weight = st.number_input("น้ำหนัก (กก.)", min_value=30.0, step=0.1)
+height = st.number_input("ส่วนสูง (ซม.)", min_value=100.0, step=0.1)
+exercise = st.selectbox("คุณออกกำลังกายบ่อยแค่ไหน?", ["ออกกำลังกายปกติ", "ไม่ออกกำลังกาย"])
+family_history = st.checkbox("คุณมีประวัติครอบครัวเป็นโรคหลอดเลือดหัวใจหรือไม่?", value=False)
+blood_sugar = st.number_input("ระดับน้ำตาลในเลือด (mg/dL)", min_value=0, step=1)
+cholesterol = st.number_input("ระดับคอเลสเตอรอล (mg/dL)", min_value=0, step=1)
+diet = st.selectbox("คุณทานอาหารอย่างไร?", ["ทานอาหารที่มีไขมันสูง", "ทานผักและผลไม้ไม่เพียงพอ", "ทานอาหารสมดุล"])
 
-        # ตรวจสอบว่าข้อมูลครบถ้วน
-        required_fields = ['age', 'gender', 'smoking', 'hypertension', 'waist_circumference',
-                           'weight', 'height', 'exercise', 'family_history', 'blood_sugar', 'cholesterol', 'diet']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing field: {field}'}), 400
+# การประมวลผล
+if st.button("ประเมินความเสี่ยง"):
+    score = calculate_risk_score(age, gender, smoking, hypertension, waist_circumference, weight, height, exercise, family_history, blood_sugar, cholesterol, diet)
+    risk_percentage, advice = interpret_risk(score)
 
-        # คำนวณคะแนนความเสี่ยง
-        score = calculate_risk_score(
-            data['age'], data['gender'], data['smoking'], data['hypertension'],
-            data['waist_circumference'], data['weight'], data['height'],
-            data['exercise'], data['family_history'], data['blood_sugar'], data['cholesterol'], data['diet']
-        )
-        risk_percentage, advice = interpret_risk(score)
-
-        return jsonify({'risk_percentage': risk_percentage, 'advice': advice, 'score': score})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    st.write(f"คะแนนความเสี่ยงของคุณคือ: {score}")
+    st.write(f"โอกาสเกิดโรคหลอดเลือดหัวใจใน 10 ปีข้างหน้าคือ: {risk_percentage}")
+    st.write(f"คำแนะนำ: {advice}")
